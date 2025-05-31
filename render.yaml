@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: gpt-notion-backend
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port 10000"
+    envVars:
+      - key: NOTION_TOKEN
+        sync: false
+      - key: DATABASE_ID_TAREAS
+        sync: false
+      - key: DATABASE_ID_REFLEXIONES
+        sync: false
+      - key: DATABASE_ID_BIBLIOTECA
+        sync: false
+      - key: DATABASE_ID_DESEOS
+        sync: false

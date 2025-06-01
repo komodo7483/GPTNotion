@@ -1,51 +1,43 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from notion_handler import add_entry, read_entries, update_entry, delete_entry
-import uvicorn
 
-app = FastAPI(
-    title="GPT-Notion Backend",
-    description="Acciones CRUD unificadas para las cuatro bases de datos",
-    version="1.0.0"
-)
-
-# ---------- Pydantic schema para entrada ----------
-class Entrada(BaseModel):
-    action: str     # add, read, update, delete
-    tipo: str       # tarea, reflexion, recurso, deseo
-    data: dict | None = None        # requerido en add / update
-    page_id: str | None = None      # requerido en update / delete
-    filter_payload: dict | None = None  # opcional en read
-
+app = FastAPI()
 
 @app.post("/entrada")
-def procesar_entrada(entrada: Entrada):
-    """
-    Recibe un JSON del GPT y ejecuta la acción pedida.
-    """
+async def handle_entry(request: Request):
     try:
-        if entrada.action == "add":
-            return add_entry(entrada.tipo, entrada.data or {})
+        body = await request.json()
+        action = body.get("action")
+        tipo = body.get("tipo")
+        data = body.get("data", {})
 
-        elif entrada.action == "read":
-            return read_entries(entrada.tipo, entrada.filter_payload)
+        if action == "add":
+            return add_entry(tipo, data)
 
-        elif entrada.action == "update":
-            if not entrada.page_id:
-                return {"error": "page_id requerido para update"}
-            return update_entry(entrada.page_id, entrada.data or {})
+        elif action == "read":
+            return read_entries(tipo)
 
-        elif entrada.action == "delete":
-            if not entrada.page_id:
-                return {"error": "page_id requerido para delete"}
-            return delete_entry(entrada.page_id)
+        elif action == "update":
+            page_id = data.get("page_id")
+            properties = data.get("properties", {})
+            if not page_id:
+                return JSONResponse(content={"error": "Falta page_id para actualizar."}, status_code=400)
+            return update_entry(page_id, properties)
+
+        elif action == "delete":
+            page_id = data.get("page_id")
+            if not page_id:
+                return JSONResponse(content={"error": "Falta page_id para eliminar."}, status_code=400)
+            return delete_entry(page_id)
 
         else:
-            return {"error": "Acción no reconocida"}
+            return JSONResponse(content={"error": f"Acción '{action}' no reconocida."}, status_code=400)
 
     except Exception as e:
-        return {"error": str(e)}
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+@app.get("/")
+def home():
+    return {"status": "Servidor activo y funcionando 🚀"}
